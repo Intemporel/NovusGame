@@ -775,6 +775,146 @@ void DebugRenderer::DrawTriangleSolid3D(const vec3& v0, const vec3& v1, const ve
 	vertices.push_back({ vec4(v2, 0.0f), vec4(normal, colorFloat ) });
 }
 
+void DebugRenderer::DrawSphere(const vec3& center, f32 radius, i32 longitude, i32 latitude, Color color, bool shaded)
+{
+    auto& vertices = _debugVerticesSolid3D.Get();
+
+    color.a = static_cast<f32>(shaded);
+    u32 colorInt = color.ToU32();
+    f32 colorFloat = *reinterpret_cast<f32*>(&color);
+
+    f32 x, y, z, a, b, da, db;
+    i32 ia, ib, iy;
+    da = glm::two_pi<f32>() / static_cast<f32>(longitude);
+    db = glm::pi<f32>() / static_cast<f32>(latitude - 1);
+
+    std::vector<vec3> points;
+    std::vector<u16> indices;
+
+    // vertices
+    for (b = -glm::half_pi<float>(), ib = 0; ib < latitude; ib++, b += db)
+    {
+        for (a = 0.f, ia = 0; ia < longitude; ia++, a += da)
+        {
+            x = cos(b) * cos(a);
+            z = cos(b) * sin(a);
+            y = sin(b);
+
+            vec3 point(x, y, z);
+            point *= radius;
+            point += center;
+
+            points.emplace_back(point);
+        }
+    }
+
+    // indices
+    for (iy = 0, ib = 1; ib < latitude; ib++)
+    {
+        for (ia = 1; ia < longitude; ia++, iy++)
+        {
+            indices.push_back(iy);
+            indices.push_back(iy + 1);
+            indices.push_back(iy + longitude);
+
+            indices.push_back(iy + longitude);
+            indices.push_back(iy + 1);
+            indices.push_back(iy + longitude + 1);
+        }
+
+        indices.push_back(iy);
+        indices.push_back(iy + 1 - longitude);
+        indices.push_back(iy + longitude);
+
+        indices.push_back(iy + longitude);
+        indices.push_back(iy - longitude + 1);
+        indices.push_back(iy + 1);
+        iy++;
+    }
+
+    for (auto index : indices)
+    {
+        if (index >= 0 && index < points.size())
+        {
+            vertices.push_back({vec4{points[index], 0.0f}, vec4{vec3(0.0f), colorFloat}});
+        }
+    }
+}
+
+void DebugRenderer::DrawPipe(const std::vector<vec3>& path, f32 radius, f32 rotationPerSegment, i32 segment, Color color, bool shaded)
+{
+    auto& vertices = _debugVerticesSolid3D.Get();
+
+    color.a = static_cast<f32>(shaded);
+    u32 colorInt = color.ToU32();
+    f32 colorFloat = *reinterpret_cast<f32*>(&color);
+
+    std::vector<glm::vec3> points;
+    std::vector<u16> indices;
+
+    // vertices
+    vec3 previousDirection;
+    f32 rotationStep = 0.0f;
+    for (size_t i = 0; i < path.size(); i++)
+    {
+        vec3 currentPoint = path[i];
+        vec3 direction;
+
+        if ((i + 1) < path.size())
+        {
+            direction = glm::normalize(path[i + 1] - currentPoint);
+            previousDirection = direction;
+        }
+        else
+        {
+            direction = previousDirection;
+        }
+
+        vec3 up = vec3(0.0f, 1.0f, 0.0f);
+        vec3 side = glm::normalize(glm::cross(up, direction));
+        up = glm::normalize(glm::cross(direction, side));
+
+        rotationStep += rotationPerSegment;
+        for (i32 j = 0; j <= segment; j++)
+        {
+            f32 theta = static_cast<f32>(j) / static_cast<f32>(segment) * glm::two_pi<f32>() + rotationStep;
+            vec3 vertex = currentPoint + radius * (side * cos(theta) + up * sin(theta));
+            points.emplace_back(vertex);
+        }
+    }
+
+    // indices
+    for (i32 i = 0; i < path.size() - 1; i++)
+    {
+        for (i32 j = 0; j < segment; j++)
+        {
+            i32 base = i * (segment + 1);
+            i32 nextBase = (i + 1) * (segment + 1);
+
+            indices.push_back(base + j);
+            indices.push_back(nextBase + j + 1);
+            indices.push_back(base + j + 1);
+
+            indices.push_back(base + j);
+            indices.push_back(nextBase + j);
+            indices.push_back(nextBase + j + 1);
+        }
+    }
+
+    for (auto index : indices)
+    {
+        if (index >= 0 && index < points.size())
+        {
+            vertices.push_back({vec4{points[index], 0.0f}, vec4{vec3(0.0f), colorFloat}});
+        }
+    }
+}
+
+void DebugRenderer::DrawRibbon(const std::vector<vec3>& path, f32 radius, f32 rotationPerSegment, Color color, bool shaded)
+{
+    DrawPipe(path, radius, rotationPerSegment, 2, color, shaded);
+}
+
 void DebugRenderer::RegisterCullingPassBufferUsage(Renderer::RenderGraphBuilder& builder)
 {
 	using BufferUsage = Renderer::BufferPassUsage;

@@ -46,6 +46,10 @@ public:
 	void DrawTriangleSolid2D(const vec2& v0, const vec2& v1, const vec2& v2, Color color, bool shaded = false);
 	void DrawTriangleSolid3D(const vec3& v0, const vec3& v1, const vec3& v2, Color color, bool shaded = false);
 
+    void DrawSphere(const vec3& center, f32 radius, i32 longitude, i32 latitude, Color color, bool shaded = false);
+    void DrawPipe(const std::vector<vec3>& path, f32 radius, f32 rotationPerSegment, i32 segment, Color color, bool shaded = false);
+    void DrawRibbon(const std::vector<vec3>& path, f32 radius, f32 rotationPerSegment, Color color, bool shaded = false);
+
 	static vec3 UnProject(const vec3& point, const mat4x4& m);
 
 	Renderer::DescriptorSet& GetDebugDescriptorSet() { return _debugDescriptorSet; }
