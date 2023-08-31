@@ -50,6 +50,7 @@ namespace Editor
             ImGui::Text("Pitch: %.2f", camera.pitch);
             ImGui::Text("Yaw: %.2f", camera.yaw);
             ImGui::Text("Roll: %.2f", camera.roll);
+            ImGui::Text("Fov %.2f", camera.fov);
 
             vec3 eulerAngles = glm::eulerAngles(rotQuat);
             ImGui::Text("Euler: (%.2f, %.2f, %.2f)", eulerAngles.x, eulerAngles.y, eulerAngles.z);
