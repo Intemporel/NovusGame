@@ -113,30 +113,33 @@ namespace Editor
 				_inspector->OnMouseClickLeft(0, KeybindAction::Click, modifier);
 			}
 
-			if (ImGui::IsMouseDoubleClicked(1)) // Double right click
-			{
-				ECS::Util::CameraUtil::SetCaptureMouse(true);
+            if (IsMouseInsideWindow())
+            {
+                if (ImGui::IsMouseDoubleClicked(1)) // Double right click
+                {
+                    ECS::Util::CameraUtil::SetCaptureMouse(true);
 
-				vec2 capturePos = windowPos + (contentRegionAvail / 2.0f);//vec2(windowPos.x + (contentRegionAvail.x / 2.0f), windowPos.y + (contentRegionAvail.y / 2.0f));
-				cameraSettings.prevMousePosition = capturePos;
-			}
-			else if (ImGui::IsItemClicked(1)) // Right click
-			{
-				cameraSettings.prevMousePosition = io.MousePos;
-			}
-			else
-			{
-				// If holding down rightclick
-				if (io.MouseDown[1])
-				{
-					ECS::Systems::FreeflyingCamera::CapturedMouseMoved(*registry, io.MousePos);
-				}
-				// If we scrolled
-				if (io.MouseWheel != 0.0f)
-				{
-					ECS::Systems::FreeflyingCamera::CapturedMouseScrolled(*registry, vec2(0.0f, io.MouseWheel));
-				}
-			}
+                    vec2 capturePos = windowPos + (contentRegionAvail / 2.0f);//vec2(windowPos.x + (contentRegionAvail.x / 2.0f), windowPos.y + (contentRegionAvail.y / 2.0f));
+                    cameraSettings.prevMousePosition = capturePos;
+                }
+                else if (ImGui::IsItemClicked(1)) // Right click
+                {
+                    cameraSettings.prevMousePosition = io.MousePos;
+                }
+                else
+                {
+                    // If holding down rightclick
+                    if (io.MouseDown[1])
+                    {
+                        ECS::Systems::FreeflyingCamera::CapturedMouseMoved(*registry, io.MousePos);
+                    }
+                    // If we scrolled
+                    if (io.MouseWheel != 0.0f)
+                    {
+                        ECS::Systems::FreeflyingCamera::CapturedMouseScrolled(*registry, vec2(0.0f, io.MouseWheel));
+                    }
+                }
+            }
 
 			DrawBottomBar(contentRegionAvail);
 		}
