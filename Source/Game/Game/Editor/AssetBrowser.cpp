@@ -1,6 +1,7 @@
 #include "AssetBrowser.h"
 
 #include <Game/Util/ImGui/FakeScrollingArea.h>
+#include <Game/Editor/CameraEditor.h>
 
 #include <Base/Util/DebugHandler.h>
 #include <Base/Util/StringUtils.h>
@@ -40,6 +41,8 @@ namespace Editor
 
         if (ImGui::Begin(GetName()))
         {
+            OpenMenuComplexModel();
+
             ImGui::Text("Actual data folder : %s", _topPath.string().c_str());
             if (_currentNode)
             {
@@ -189,14 +192,57 @@ namespace Editor
         }
     }
 
-    void AssetBrowser::ItemClicked(const fs::path& /*item*/)
+    void AssetBrowser::ItemClicked(const fs::path& item, ImGuiMouseButton button)
     {
+        _item = item;
 
+        std::string extension = item.extension().string();
+        if (button == ImGuiMouseButton_Right)
+        {
+            if (extension == ".complexmodel")
+            {
+                _openMenuComplexModel = true;
+            }
+        }
     }
 
     void AssetBrowser::ItemHovered(const fs::path& /*item*/)
     {
 
+    }
+
+    void AssetBrowser::ItemDragged(const fs::path& item)
+    {
+        if (ImGui::BeginDragDropSource())
+        {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+            ImGui::SetDragDropPayload("ASSET_BROWSER_FILE", &item, sizeof(item));
+            ImGui::Text("%s", item.string().c_str());
+            ImGui::EndDragDropSource();
+        }
+    }
+
+    void AssetBrowser::OpenMenuComplexModel()
+    {
+        if (OpenMenu("Complex Model", _openMenuComplexModel))
+        {
+            if (ImGui::Button("Open in Cinematic Editor"))
+            {
+                if (_cameraEditor)
+                {
+                    if (!_cameraEditor->IsVisible())
+                        _cameraEditor->Show();
+
+                    _cameraEditor->OpenFile(_item);
+                    _cameraEditor->SetIsVisible(true);
+                    _cameraEditor->UpdateVisibility();
+                }
+                ImGui::Text("What a test");
+            }
+
+            _openMenuComplexModel = false;
+            CloseMenu();
+        }
     }
 
     void AssetBrowser::CalculateAverageFontWidth()
@@ -286,14 +332,20 @@ namespace Editor
 
     void AssetBrowser::RowFileMode(const fs::path& item)
     {
-        if (ImGui::Button(item.filename().string().c_str()))
+        ImGui::Button(item.filename().string().c_str());
+        if (ImGui::IsItemClicked(1))
         {
-            ItemClicked(item);
+            ItemClicked(item, 1);
+        }
+        if (ImGui::IsItemClicked(0))
+        {
+            ItemClicked(item, 0);
         }
         if (ImGui::IsItemHovered())
         {
             ItemHovered(item);
         }
+        ItemDragged(item);
     }
 
     void AssetBrowser::DisplayFileMode(ImTextureID imageTexture, ImVec2 size, f32 scale, const fs::path& item, f32 fontWidth)
@@ -309,15 +361,21 @@ namespace Editor
         {
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
             cursorPos = ImGui::GetCursorPos();
-            if (ImGui::Button("##", buttonSize)) // background button
+            ImGui::Button("##", buttonSize); // background button
+            if (ImGui::IsItemClicked(1))
             {
-                ItemClicked(item);
+                ItemClicked(item, 1);
+            }
+            if (ImGui::IsItemClicked(0))
+            {
+                ItemClicked(item, 0);
             }
             if (ImGui::IsItemHovered())
             {
                 ImGui::SetTooltip("%s", itemName.c_str());
                 ItemHovered(item);
             }
+            ItemDragged(item);
             endCursorPos = ImGui::GetCursorPos();
             ImGui::PopStyleVar();
 

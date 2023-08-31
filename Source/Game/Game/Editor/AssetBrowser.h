@@ -17,6 +17,8 @@ namespace fs = std::filesystem;
 
 namespace Editor
 {
+    class CameraEditor;
+
     class AssetBrowser : public BaseEditor
     {
         constexpr static const ImVec2 _defaultDisplaySize = ImVec2(80.f, 80.f);
@@ -81,8 +83,14 @@ namespace Editor
         void ProcessFileSearch(const std::string& search);
 
         // Handle action on item
-        void ItemClicked(const fs::path& item);
+        void ItemClicked(const fs::path& item, ImGuiMouseButton button);
         void ItemHovered(const fs::path& item);
+        void ItemDragged(const fs::path& item);
+
+        // Handle menu regardless of item extension
+        fs::path _item;
+        bool _openMenuComplexModel = false;
+        void OpenMenuComplexModel();
 
     private:
         GameRenderer* _gameRenderer = nullptr;
@@ -104,5 +112,12 @@ namespace Editor
         vec2 _currentSize;
 
         f32 _averageFontWidth = -1.f;
+
+    // ALL OTHER EDITOR TOOLS
+    public:
+        void SetCameraEditor(CameraEditor* cameraEditor) { _cameraEditor = cameraEditor; }
+
+    private:
+        CameraEditor* _cameraEditor = nullptr;
     };
 }
