@@ -23,7 +23,7 @@ namespace Editor
 
 		virtual void EndImGui() {};
 
-		bool OpenMenu(const char* title);
+		bool OpenMenu(const char* title, bool force = false);
 		void CloseMenu();
 
 		bool OpenRightClickMenu();

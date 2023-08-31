@@ -55,11 +55,11 @@ namespace Editor
 		_isVisible = true;
 	}
 
-	bool BaseEditor::OpenMenu(const char* title)
+	bool BaseEditor::OpenMenu(const char* title, bool force)
 	{
 		std::string menuName = std::string("Menu" + std::string(GetName()));
 
-		if (OpenRightClickMenu())
+		if (OpenRightClickMenu() || force)
 		{
 			ImGui::OpenPopup(menuName.c_str());
 		}
