@@ -1,6 +1,8 @@
 #include "Game/Loaders/LoaderSystem.h"
 #include "Game/Util/ServiceLocator.h"
 #include "Game/ECS/Singletons/MapDB.h"
+#include "Game/ECS/Singletons/CinematicDB.h"
+#include "Game/ECS/Singletons/SplineDataDB.h"
 #include "Game/Application/EnttRegistries.h"
 
 #include <Base/Container/ConcurrentQueue.h>
@@ -97,6 +99,8 @@ public:
     void SetupSingletons(entt::registry::context& registryCtx)
     {
         registryCtx.emplace<ECS::Singletons::MapDB>();
+        registryCtx.emplace<ECS::Singletons::CinematicDB>();
+        registryCtx.emplace<ECS::Singletons::SplineDataDB>();
     }
 
     bool LoadMapDB(entt::registry::context& registryCtx, std::shared_ptr<Bytebuffer>& buffer, const ClientDBPair& pair)
@@ -138,9 +142,69 @@ public:
         return true;
     }
 
+    bool LoadCinematicDB(entt::registry::context& registryCtx, std::shared_ptr<Bytebuffer>& buffer, const ClientDBPair& pair)
+    {
+        auto& cinematicDB = registryCtx.at<ECS::Singletons::CinematicDB>();
+
+        cinematicDB.entries.data.clear();
+        cinematicDB.entries.stringTable.Clear();
+
+        bool isRead = cinematicDB.entries.Read(buffer);
+        return isRead;
+    }
+
+    bool LoadSplineDataDB(entt::registry::context& registryCtx, std::shared_ptr<Bytebuffer>& buffer, const ClientDBPair& pair)
+    {
+        auto& splineDataDB = registryCtx.at<ECS::Singletons::SplineDataDB>();
+
+        splineDataDB.entries.data.clear();
+        splineDataDB.entries.stringTable.Clear();
+
+        if (!splineDataDB.entries.Read(buffer))
+        {
+            return false;
+        }
+
+        u32 numRecords = static_cast<u32>(splineDataDB.entries.data.size());
+        splineDataDB.splineEntryIDToPath.reserve(numRecords);
+
+        fs::path splineExtension = ".spline";
+        fs::path rootSplinePath = fs::path("Data/Spline/");
+        fs::path absoluteSplinePath = fs::absolute(rootSplinePath);
+
+        robin_hood::unordered_map<u32, std::string> splineHashToName;
+        for (const fs::path& path : fs::recursive_directory_iterator(absoluteSplinePath))
+        {
+            if (!path.has_extension() || path.extension().compare(splineExtension) != 0)
+                continue;
+
+            fs::path relativePath = rootSplinePath / fs::relative(path, rootSplinePath);
+            std::string splinePath = relativePath.string();
+            std::replace(splinePath.begin(), splinePath.end(), L'\\', L'/');
+
+            u32 splineHash = StringUtils::fnv1a_32(splinePath.c_str(), splinePath.length());
+            splineHashToName[splineHash] = splinePath;
+        }
+
+        for (u32 i = 0; i < numRecords; i++)
+        {
+            u32 id = splineDataDB.entries.data[i].id;
+            u32 hash = splineDataDB.entries.data[i].path;
+
+            if (splineHashToName[hash].empty())
+                continue;
+
+            splineDataDB.splineEntryIDToPath[id] = splineHashToName[hash];
+        }
+
+        return true;
+    }
+
     robin_hood::unordered_map<u32, std::function<bool(entt::registry::context&, std::shared_ptr<Bytebuffer>&, const ClientDBPair&)>> clientDBEntries =
     {
-        { "Map.cdb"_h, std::bind(&ClientDBLoader::LoadMapDB, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3) }
+        { "Map.cdb"_h, std::bind(&ClientDBLoader::LoadMapDB, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3) },
+        { "Cinematic.cdb"_h, std::bind(&ClientDBLoader::LoadCinematicDB, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3) },
+        { "SplineData.cdb"_h, std::bind(&ClientDBLoader::LoadSplineDataDB, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3) },
     };
 };
 
