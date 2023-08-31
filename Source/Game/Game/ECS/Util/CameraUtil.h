@@ -7,5 +7,6 @@ namespace ECS::Util
 	{
 		void SetCaptureMouse(bool capture);
 		void CenterOnObject(const vec3& position, f32 radius);
+        void LookAt(const vec3& target);
 	}
 }

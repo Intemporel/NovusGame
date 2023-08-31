@@ -61,7 +61,22 @@ namespace ECS::Util
 
             camera.dirtyView = true;
 
-            registry->get_or_emplace<ECS::Components::DirtyTransform>(activeCamera.entity);
+            registry->get_or_emplace<ECS::Components::DirtyTransform> (activeCamera.entity);
+        }
+
+        void LookAt(const vec3& target)
+        {
+            entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+            entt::registry::context& ctx = registry->ctx();
+
+            ECS::Singletons::ActiveCamera& activeCamera = ctx.emplace<ECS::Singletons::ActiveCamera>();
+            ECS::Components::Transform& cameraTransform = registry->get<ECS::Components::Transform>(activeCamera.entity);
+            ECS::Components::Camera& camera = registry->get<ECS::Components::Camera>(activeCamera.entity);
+
+            vec3 direction = glm::normalize(target - cameraTransform.position);
+
+            camera.yaw = glm::degrees(glm::atan(direction.x, direction.z));
+            camera.pitch = -glm::degrees(glm::asin(direction.y));
         }
 	}
 }
