@@ -10,6 +10,7 @@ namespace Editor
     class Hierarchy;
     class AssetBrowser;
     class ActionStackEditor;
+    class CameraEditor;
 
     class EditorHandler
     {
@@ -48,6 +49,7 @@ namespace Editor
         Hierarchy* _hierarchy = nullptr;
         AssetBrowser* _assetBrowser = nullptr;
         ActionStackEditor* _actionStackEditor = nullptr;
+        CameraEditor* _cameraEditor = nullptr;
         
         const f32 LAYOUT_SAVE_INTERVAL = 5.0f;
         f32 _timeSinceLayoutSave = 0.0f;

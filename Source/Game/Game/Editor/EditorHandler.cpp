@@ -9,6 +9,7 @@
 #include "AssetBrowser.h"
 #include "ActionStack.h"
 #include "EaseCurveTool.h"
+#include "CameraEditor.h"
 
 #include "Game/Util/ServiceLocator.h"
 #include "Game/Rendering/GameRenderer.h"
@@ -38,9 +39,11 @@ namespace Editor
         _editors.push_back(new MapEditor());
         _editors.push_back(new EaseCurveTool());
 
+        _cameraEditor = new CameraEditor();
+        _editors.push_back(_cameraEditor);
+
         _actionStackEditor = new ActionStackEditor(64);
         _editors.push_back(_actionStackEditor);
-
 
         _inspector = new Inspector();
         _editors.push_back(_inspector);
@@ -56,6 +59,11 @@ namespace Editor
 
         _assetBrowser = new AssetBrowser();
         _editors.push_back(_assetBrowser);
+
+        // assetBrowser editor setup
+        {
+            _assetBrowser->SetCameraEditor(_cameraEditor);
+        }
 
         _actionStackEditor = new ActionStackEditor(64);
         _editors.push_back(_actionStackEditor);
