@@ -15,6 +15,25 @@ namespace Renderer
 class DebugRenderer
 {
 public:
+    struct DebugVertex2D
+    {
+        vec2 pos;
+        u32 color;
+    };
+
+    struct DebugVertex3D
+    {
+        vec3 pos;
+        u32 color;
+    };
+
+    struct DebugVertexSolid3D
+    {
+        vec4 pos;
+        vec4 normalAndColor; // xyz = normal, int(w) = color
+    };
+
+public:
 	DebugRenderer(Renderer::Renderer* renderer);
 	~DebugRenderer();
 
@@ -39,6 +58,8 @@ public:
 	void DrawMatrix(const mat4x4& matrix, f32 scale);
 
 	// Solid
+    void DrawVerticesSolid3D(const std::vector<DebugVertexSolid3D>& data);
+
 	void DrawLineSolid2D(const vec2& from, const vec2& to, Color color, bool shaded = false);
 
 	void DrawAABBSolid3D(const vec3& center, const vec3& extents, Color color, bool shaded = false);
@@ -46,9 +67,9 @@ public:
 	void DrawTriangleSolid2D(const vec2& v0, const vec2& v1, const vec2& v2, Color color, bool shaded = false);
 	void DrawTriangleSolid3D(const vec3& v0, const vec3& v1, const vec3& v2, Color color, bool shaded = false);
 
-    void DrawSphere(const vec3& center, f32 radius, i32 longitude, i32 latitude, Color color, bool shaded = false);
-    void DrawPipe(const std::vector<vec3>& path, f32 radius, f32 rotationPerSegment, i32 segment, Color color, bool shaded = false);
-    void DrawRibbon(const std::vector<vec3>& path, f32 radius, f32 rotationPerSegment, Color color, bool shaded = false);
+    void GenerateSphere(std::vector<DebugVertexSolid3D>& output, const vec3& center, f32 radius, i32 longitude, i32 latitude, Color color, bool shaded = false);
+    void GeneratePipe(std::vector<DebugVertexSolid3D>& output, const std::vector<vec3>& path, f32 radius, f32 rotationPerSegment, i32 segment, Color color, std::vector<vec3>& vertices, bool shaded = false);
+    void GenerateRibbon(std::vector<DebugVertexSolid3D>& output, const std::vector<vec3>& path, const std::vector<f32>& rotation, f32 radius, Color color, bool shaded = false);
 
 	static vec3 UnProject(const vec3& point, const mat4x4& m);
 
@@ -57,25 +78,6 @@ public:
 
 private:
 	Renderer::Renderer* _renderer = nullptr;
-
-	struct DebugVertex2D
-	{
-		vec2 pos;
-		u32 color;
-	};
-
-	struct DebugVertex3D
-	{
-		vec3 pos;
-		u32 color;
-	};
-
-	struct DebugVertexSolid3D
-	{
-		vec4 pos;
-		vec4 normalAndColor; // xyz = normal, int(w) = color
-	};
-
 	Renderer::DescriptorSet _debugDescriptorSet;
 
 	// Wireframe

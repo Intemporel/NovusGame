@@ -7,6 +7,9 @@
 #include <Renderer/RenderGraph.h>
 #include <Renderer/Descriptors/ImageDesc.h>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 AutoCVar_Int CVAR_DebugRendererNumGPUVertices("debugRenderer.numGPUVertices", "number of GPU vertices to allocate for", 32000000);
 AutoCVar_ShowFlag CVAR_DebugRendererAlwaysOnTop("debugRenderer.alwaysOnTop", "always show debug renderer on top", ShowFlag::DISABLED);
 
@@ -321,7 +324,7 @@ void DebugRenderer::Add3DPass(Renderer::RenderGraph* renderGraph, RenderResource
 			pipelineDesc.states.depthStencilState.depthFunc = Renderer::ComparisonFunc::GREATER;
 
 			// Rasterizer state
-			pipelineDesc.states.rasterizerState.cullMode = Renderer::CullMode::BACK;
+			pipelineDesc.states.rasterizerState.cullMode = Renderer::CullMode::FRONT;
 			pipelineDesc.states.rasterizerState.frontFaceMode = Renderer::Settings::FRONT_FACE_STATE;
 
 			pipelineDesc.renderTargets[0] = data.color;
@@ -584,6 +587,12 @@ void DebugRenderer::DrawMatrix(const mat4x4& matrix, f32 scale)
 	DrawLine3D(origin, origin + (vec3(matrix[2].x, matrix[2].y, matrix[2].z) * scale), Color::Blue);
 }
 
+void DebugRenderer::DrawVerticesSolid3D(const std::vector<DebugVertexSolid3D>& data)
+{
+    auto& vertices = _debugVerticesSolid3D.Get();
+    vertices.insert(vertices.end(), data.begin(), data.end());
+}
+
 void DebugRenderer::DrawLineSolid2D(const vec2& from, const vec2& to, Color color, bool shaded)
 {
 	color.a = static_cast<f32>(shaded);
@@ -775,20 +784,19 @@ void DebugRenderer::DrawTriangleSolid3D(const vec3& v0, const vec3& v1, const ve
 	vertices.push_back({ vec4(v2, 0.0f), vec4(normal, colorFloat ) });
 }
 
-void DebugRenderer::DrawSphere(const vec3& center, f32 radius, i32 longitude, i32 latitude, Color color, bool shaded)
+void DebugRenderer::GenerateSphere(std::vector<DebugVertexSolid3D>& output, const vec3& center, f32 radius, i32 longitude, i32 latitude, Color color, bool shaded)
 {
-    auto& vertices = _debugVerticesSolid3D.Get();
-
     color.a = static_cast<f32>(shaded);
     u32 colorInt = color.ToU32();
-    f32 colorFloat = *reinterpret_cast<f32*>(&color);
+    f32 colorFloat = *reinterpret_cast<f32*>(&colorInt);
 
     f32 x, y, z, a, b, da, db;
     i32 ia, ib, iy;
     da = glm::two_pi<f32>() / static_cast<f32>(longitude);
     db = glm::pi<f32>() / static_cast<f32>(latitude - 1);
 
-    std::vector<vec3> points;
+    std::vector<vec3> vertices;
+    std::vector<vec3> normals;
     std::vector<u16> indices;
 
     // vertices
@@ -804,7 +812,8 @@ void DebugRenderer::DrawSphere(const vec3& center, f32 radius, i32 longitude, i3
             point *= radius;
             point += center;
 
-            points.emplace_back(point);
+            vertices.emplace_back(point);
+            normals.emplace_back(glm::normalize(point - center));
         }
     }
 
@@ -814,60 +823,59 @@ void DebugRenderer::DrawSphere(const vec3& center, f32 radius, i32 longitude, i3
         for (ia = 1; ia < longitude; ia++, iy++)
         {
             indices.push_back(iy);
-            indices.push_back(iy + 1);
             indices.push_back(iy + longitude);
+            indices.push_back(iy + 1);
 
             indices.push_back(iy + longitude);
-            indices.push_back(iy + 1);
             indices.push_back(iy + longitude + 1);
+            indices.push_back(iy + 1);
         }
 
         indices.push_back(iy);
-        indices.push_back(iy + 1 - longitude);
         indices.push_back(iy + longitude);
+        indices.push_back(iy + 1 - longitude);
 
         indices.push_back(iy + longitude);
-        indices.push_back(iy - longitude + 1);
         indices.push_back(iy + 1);
+        indices.push_back(iy - longitude + 1);
         iy++;
     }
 
     for (auto index : indices)
     {
-        if (index >= 0 && index < points.size())
+        if (index >= 0 && index < vertices.size())
         {
-            vertices.push_back({vec4{points[index], 0.0f}, vec4{vec3(0.0f), colorFloat}});
+            output.push_back({vec4{vertices[index], 0.0f}, vec4{normals[index], colorFloat}});
         }
     }
 }
 
-void DebugRenderer::DrawPipe(const std::vector<vec3>& path, f32 radius, f32 rotationPerSegment, i32 segment, Color color, bool shaded)
+void DebugRenderer::GeneratePipe(std::vector<DebugVertexSolid3D>& output, const std::vector<vec3>& path, f32 radius, f32 rotationPerSegment, i32 segment, Color color, std::vector<vec3>& outVerticesDebug, bool shaded)
 {
-    auto& vertices = _debugVerticesSolid3D.Get();
-
     color.a = static_cast<f32>(shaded);
     u32 colorInt = color.ToU32();
-    f32 colorFloat = *reinterpret_cast<f32*>(&color);
+    f32 colorFloat = *reinterpret_cast<f32*>(&colorInt);
 
-    std::vector<glm::vec3> points;
+    std::vector<glm::vec3> vertices;
+    std::vector<glm::vec3> normals;
     std::vector<u16> indices;
 
     // vertices
-    vec3 previousDirection;
     f32 rotationStep = 0.0f;
-    for (size_t i = 0; i < path.size(); i++)
+    for (size_t i = 0; i < path.size(); ++i)
     {
         vec3 currentPoint = path[i];
-        vec3 direction;
+        vec3 nextPoint = (i + 1 < path.size()) ? path[i + 1]: path[i - 1];
 
-        if ((i + 1) < path.size())
+        vec3 direction;
+        if (i + 1 < path.size())
         {
-            direction = glm::normalize(path[i + 1] - currentPoint);
-            previousDirection = direction;
+            direction = glm::normalize(nextPoint - currentPoint);
         }
         else
         {
-            direction = previousDirection;
+            // here the nextPoint is the previous
+            direction = glm::normalize(currentPoint - nextPoint);
         }
 
         vec3 up = vec3(0.0f, 1.0f, 0.0f);
@@ -875,44 +883,132 @@ void DebugRenderer::DrawPipe(const std::vector<vec3>& path, f32 radius, f32 rota
         up = glm::normalize(glm::cross(direction, side));
 
         rotationStep += rotationPerSegment;
-        for (i32 j = 0; j <= segment; j++)
+        for (i32 j = 0; j <= segment; ++j)
         {
             f32 theta = static_cast<f32>(j) / static_cast<f32>(segment) * glm::two_pi<f32>() + rotationStep;
             vec3 vertex = currentPoint + radius * (side * cos(theta) + up * sin(theta));
-            points.emplace_back(vertex);
+            vertices.emplace_back(vertex);
+            normals.emplace_back(glm::normalize(glm::cross(vertex, currentPoint)));
         }
     }
 
     // indices
-    for (i32 i = 0; i < path.size() - 1; i++)
+    for (i32 i = 0; i < path.size() - 1; ++i)
     {
-        for (i32 j = 0; j < segment; j++)
+        i32 base = i * (segment + 1);
+        i32 nextBase = (i + 1) * (segment + 1);
+
+        for (i32 j = 0; j < segment; ++j)
         {
-            i32 base = i * (segment + 1);
-            i32 nextBase = (i + 1) * (segment + 1);
+            indices.push_back(base + j);
+            indices.push_back(nextBase + j);
+            indices.push_back(nextBase + j + 1);
 
             indices.push_back(base + j);
             indices.push_back(nextBase + j + 1);
             indices.push_back(base + j + 1);
-
-            indices.push_back(base + j);
-            indices.push_back(nextBase + j);
-            indices.push_back(nextBase + j + 1);
         }
     }
 
+    outVerticesDebug = vertices;
+
     for (auto index : indices)
     {
-        if (index >= 0 && index < points.size())
+        if (index >= 0 && index < vertices.size())
         {
-            vertices.push_back({vec4{points[index], 0.0f}, vec4{vec3(0.0f), colorFloat}});
+            output.push_back({vec4{vertices[index], 0.0f}, vec4{normals[index], colorFloat}});
         }
     }
 }
 
-void DebugRenderer::DrawRibbon(const std::vector<vec3>& path, f32 radius, f32 rotationPerSegment, Color color, bool shaded)
+void DebugRenderer::GenerateRibbon(std::vector<DebugVertexSolid3D>& output, const std::vector<vec3>& path, const std::vector<f32>& rotation, f32 radius, Color color, bool shaded)
 {
-    DrawPipe(path, radius, rotationPerSegment, 2, color, shaded);
+    if (path.size() < 2)
+        return;
+
+    color.a = static_cast<f32>(shaded);
+    u32 colorInt = color.ToU32();
+    f32 colorFloat = *reinterpret_cast<f32*>(&colorInt);
+
+    std::vector<vec3> vertices;
+    std::vector<u32> indices;
+    std::vector<vec3> normals;
+
+    for (u32 i = 0; i < path.size(); ++i)
+    {
+        vec3 up(0.0f, 1.0f, 0.0f);
+
+        vec3 currentPoint = path[i];
+        vec3 nextPoint = (i + 1 < path.size()) ? path[i + 1]: path[i - 1];
+
+        vec3 direction;
+        if (i + 1 < path.size())
+        {
+            direction = glm::normalize(nextPoint - currentPoint);
+        }
+        else
+        {
+            // here the nextPoint is the previous
+            direction = glm::normalize(currentPoint - nextPoint);
+        }
+
+        vec3 side = glm::normalize(glm::cross(up, direction));
+        up = glm::normalize(glm::cross(direction, side));
+
+        f32 theta = 0.0f;
+        if (i < rotation.size())
+            theta = rotation[i];
+
+        vec3 offset = radius * 0.5f * (side * cos(theta) + up * sin(theta));
+
+        vec3 left = path[i] - offset;
+        vec3 right = path[i] + offset;
+
+        vertices.push_back(left);
+        vertices.push_back(right);
+
+        up = glm::normalize(glm::cross(direction, glm::normalize(offset)));
+        normals.push_back(up);
+        normals.push_back(up);
+
+        if (i < path.size() - 1)
+        {
+            indices.push_back(i * 2);
+            indices.push_back((i + 1) * 2);
+            indices.push_back(i * 2 + 1);
+
+            indices.push_back(i * 2 + 1);
+            indices.push_back((i + 1) * 2);
+            indices.push_back((i + 1) * 2 + 1);
+
+            // other side
+            indices.push_back(i * 2);
+            indices.push_back(i * 2 + 1);
+            indices.push_back((i + 1) * 2);
+
+            indices.push_back((i + 1) * 2);
+            indices.push_back(i * 2 + 1);
+            indices.push_back((i + 1) * 2 + 1);
+        }
+    }
+
+    u32 count = 0;
+    for (auto index : indices)
+    {
+        if (count == 12)
+            count = 0;
+
+        vec3 normal = normals[index];
+        if (count >= 6 && count < 12)
+            normal = -normal;
+
+        if (index < vertices.size())
+        {
+            output.push_back({vec4{vertices[index], 0.0f}, vec4{normal, colorFloat}});
+        }
+
+        count++;
+    }
 }
 
 void DebugRenderer::RegisterCullingPassBufferUsage(Renderer::RenderGraphBuilder& builder)
