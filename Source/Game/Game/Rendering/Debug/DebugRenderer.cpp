@@ -921,18 +921,26 @@ void DebugRenderer::GeneratePipe(std::vector<DebugVertexSolid3D>& output, const 
     }
 }
 
-void DebugRenderer::GenerateRibbon(std::vector<DebugVertexSolid3D>& output, const std::vector<vec3>& path, const std::vector<f32>& rotation, f32 radius, Color color, bool shaded)
+void DebugRenderer::GenerateRibbon(std::vector<DebugVertexSolid3D>& output, const std::vector<vec3>& path, const std::vector<f32>& roll, const std::vector<f32>& fov, f32 radius, Color color, const std::vector<Color>& acceleration, bool shaded)
 {
     if (path.size() < 2)
         return;
+
+    bool useAccelerationColor = path.size() == acceleration.size();
 
     color.a = static_cast<f32>(shaded);
     u32 colorInt = color.ToU32();
     f32 colorFloat = *reinterpret_cast<f32*>(&colorInt);
 
     std::vector<vec3> vertices;
-    std::vector<u32> indices;
     std::vector<vec3> normals;
+    std::vector<u32> indices;
+    std::vector<f32> colors;
+
+    vertices.reserve(path.size() * 2);
+    normals.reserve(path.size() * 2);
+    indices.reserve((path.size() - 1) * 12);
+    colors.reserve(path.size() * 2);
 
     for (u32 i = 0; i < path.size(); ++i)
     {
@@ -956,10 +964,21 @@ void DebugRenderer::GenerateRibbon(std::vector<DebugVertexSolid3D>& output, cons
         up = glm::normalize(glm::cross(direction, side));
 
         f32 theta = 0.0f;
-        if (i < rotation.size())
-            theta = rotation[i];
+        if (!roll.empty())
+        {
+            u32 rollIndex = static_cast<u32>(static_cast<f32>(i) / static_cast<f32>(path.size()) * static_cast<f32>(roll.size()));
+            theta = roll[rollIndex];
+        }
 
-        vec3 offset = radius * 0.5f * (side * cos(theta) + up * sin(theta));
+        f32 width = 0.5f;
+        if (!fov.empty())
+        {
+            u32 fovIndex = static_cast<u32>(static_cast<f32>(i) / static_cast<f32>(path.size()) * static_cast<f32>(fov.size()));
+            width = glm::degrees(fov[fovIndex]) * width / 75.0f;
+            width *= 1.25f;
+        }
+
+        vec3 offset = radius * width * (side * cos(theta) + up * sin(theta));
 
         vec3 left = path[i] - offset;
         vec3 right = path[i] + offset;
@@ -967,12 +986,33 @@ void DebugRenderer::GenerateRibbon(std::vector<DebugVertexSolid3D>& output, cons
         vertices.push_back(left);
         vertices.push_back(right);
 
+        if (useAccelerationColor)
+        {
+            Color accelerationColor = acceleration[i];
+
+            accelerationColor.a = static_cast<f32>(shaded);
+            u32 accelerationColorInt = accelerationColor.ToU32();
+            f32 accelerationColorFloat = *reinterpret_cast<f32*>(&accelerationColorInt);
+
+            colors.push_back(accelerationColorFloat);
+            colors.push_back(accelerationColorFloat);
+        }
+
         up = glm::normalize(glm::cross(direction, glm::normalize(offset)));
         normals.push_back(up);
         normals.push_back(up);
 
         if (i < path.size() - 1)
         {
+            /*
+             * (( i + 1 ) * 2)  O -----O  (( i + 1 ) * 2 + 1)
+             *                  | \    |
+             *                  |  \   |
+             *                  |   \  |
+             *                  |    \ |
+             *       ( i * 2 )  O------O  ( i * 2 + 1 )
+             */
+
             indices.push_back(i * 2);
             indices.push_back((i + 1) * 2);
             indices.push_back(i * 2 + 1);
@@ -1004,7 +1044,17 @@ void DebugRenderer::GenerateRibbon(std::vector<DebugVertexSolid3D>& output, cons
 
         if (index < vertices.size())
         {
-            output.push_back({vec4{vertices[index], 0.0f}, vec4{normal, colorFloat}});
+            f32 vertexColor = 0.0f;
+            if (useAccelerationColor)
+            {
+                vertexColor = colors[index];
+            }
+            else
+            {
+                vertexColor = colorFloat;
+            }
+
+            output.push_back({vec4{vertices[index], 0.0f}, vec4{normal, vertexColor}});
         }
 
         count++;

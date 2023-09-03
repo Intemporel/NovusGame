@@ -14,5 +14,7 @@ namespace ECS::Singletons
         CinematicDB() {};
 
         DB::Client::ClientDB<DB::Client::Definitions::Cinematic> entries;
+
+        std::vector<std::string> cinematicNames;
     };
 }

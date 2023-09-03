@@ -69,7 +69,7 @@ public:
 
     void GenerateSphere(std::vector<DebugVertexSolid3D>& output, const vec3& center, f32 radius, i32 longitude, i32 latitude, Color color, bool shaded = false);
     void GeneratePipe(std::vector<DebugVertexSolid3D>& output, const std::vector<vec3>& path, f32 radius, f32 rotationPerSegment, i32 segment, Color color, std::vector<vec3>& vertices, bool shaded = false);
-    void GenerateRibbon(std::vector<DebugVertexSolid3D>& output, const std::vector<vec3>& path, const std::vector<f32>& rotation, f32 radius, Color color, bool shaded = false);
+    void GenerateRibbon(std::vector<DebugVertexSolid3D>& output, const std::vector<vec3>& path, const std::vector<f32>& roll, const std::vector<f32>& fov, f32 radius, Color color, const std::vector<Color>& acceleration = {}, bool shaded = false);
 
 	static vec3 UnProject(const vec3& point, const mat4x4& m);
 

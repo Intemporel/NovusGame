@@ -5,14 +5,23 @@
 
 #include <FileFormat/Novus/Math/Spline.h>
 #include <FileFormat/Novus/Model/ComplexModel.h>
+#include <FileFormat/Novus/ClientDB/Definitions.h>
 
-namespace ECS::Components
+#include <imgui/imguizmo/ImGuizmo.h>
+
+namespace ECS
 {
-    struct Transform;
-    struct Camera;
-}
+    namespace Components
+    {
+        struct Transform;
+        struct Camera;
+    }
 
-class DebugRenderer;
+    namespace Singletons
+    {
+        struct SplineDataDB;
+    }
+}
 
 namespace Editor
 {
@@ -24,16 +33,58 @@ namespace Editor
         Color exitColor   { };
     };
 
-    struct SplineRoll
+    struct SplineData
     {
-        std::vector<Spline::Spline2D> roll;
-        std::vector<u32> timestamp;
+        Spline::SplinePath Position;
+        Spline::SplinePath Target;
+        Spline::SplinePath Roll;
+        Spline::SplinePath Fov;
     };
 
-    struct SplineFOV
+    struct SplineSelector
     {
-        std::vector<Spline::Spline2D> fov;
-        std::vector<u32> timestamp;
+        enum class SplineType
+        {
+            None, Position, Target, COUNT
+        };
+
+        enum class SplinePointType
+        {
+            Point, In, Out, COUNT
+        };
+
+        SplineType splineType               = SplineType::None;
+        SplinePointType splinePointType     = SplinePointType::Point;
+        i32 pointSelected                   = 0;
+        ImGuizmo::OPERATION operation       = ImGuizmo::OPERATION::TRANSLATE;
+    };
+
+    enum class SplineControlMode
+    {
+        Aligned,
+        Mirrored,
+        Free,
+        COUNT
+    };
+
+    static std::string SplineTypeName[static_cast<u32>(SplineSelector::SplineType::COUNT)] = {
+        "None", "Position", "Target"
+    };
+
+    static std::string SplinePointTypeName[static_cast<u32>(SplineSelector::SplinePointType::COUNT)] = {
+        "Point", "In", "Out"
+    };
+
+    static std::string SplineOperationName[3] = {
+        "Translate", "Rolling", "Fov"
+    };
+
+    static std::string SplineControlModeName[static_cast<u32>(SplineControlMode::COUNT)] = {
+        "Aligned", "Mirrored", "Free"
+    };
+
+    static std::vector<ImGuizmo::OPERATION> _selectorOperation ={
+        ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::OPERATION::ROTATE_X, ImGuizmo::OPERATION::SCALE_X
     };
 
     class CameraEditor : public BaseEditor
@@ -41,79 +92,79 @@ namespace Editor
     public:
         CameraEditor();
 
-        virtual const char* GetName() override { return "Camera Editor"; }
+        const char* GetName() override { return "Camera Editor"; }
 
-        virtual void DrawImGui() override;
-        virtual void Update(f32 deltaTime) override;
-
-    public:
-        void OpenFile(const std::filesystem::path& file);
+        void DrawImGui() override;
+        void Update(f32 deltaTime) override;
 
     private:
         void ReceiveDrop();
-        bool OpenCamera(const std::string& path, Model::ComplexModel& output);
+        void LoadCinematic();
+        bool LoadSplineFile(const std::string& path, Spline::SplinePath& out);
 
-        void DrawHeader();
+        static void HandleCinematic(DB::Client::Definitions::Cinematic& cinematic, u32 time, std::vector<SplineData>& splineData, vec3& position, vec3& target, f32& roll, f32& fov);
+        static u32 GetCurrentSequence(DB::Client::Definitions::Cinematic& cinematic, u32 time);
+        static f32 GetTimestampSequence(DB::Client::Definitions::Cinematic& cinematic, u32 time);
+        static u32 GetTimestampUntilSequence(DB::Client::Definitions::Cinematic& cinematic, u32 time);
+
+        void DrawInterface();
+        void DrawSelector();
+        void DrawCinematic(ECS::Singletons::SplineDataDB& splineDataDB);
+        void DrawDisplaySettings();
+        void DrawDataInformation();
+        void DrawComboBoxInterpolation(ImVec2 cursorPosition, f32 width, Spline::SplinePath& spline, const std::string& id);
         bool DrawGizmo(ECS::Components::Camera& camera);
+        bool ApplyGizmo(ECS::Components::Camera& camera, Spline::SplinePath& splinePath);
+        bool ComputeGizmo(ECS::Components::Camera& camera, Spline::SplinePath& spline, vec3& point, vec3& rotation);
         void DrawInViewport(DebugRenderer* renderer);
-        void DrawCurve(std::vector<DebugRenderer::DebugVertexSolid3D>& cache, DebugRenderer* renderer, Spline::SplinePath* curve, SplineColor color, bool isPosition = false);
+        void DrawCurve(std::vector<DebugRenderer::DebugVertexSolid3D>& cache, DebugRenderer* renderer, Spline::SplinePath& curve, Spline::SplinePath& roll, Spline::SplinePath& fov, SplineColor color, bool isPosition = false);
 
-        void ConvertOldCameraToNovus();
-        vec3 SplineSpaceToWorld(const vec3& dbPos, f32 dbFacing, const vec3& base, const vec3& splinePos);
-        vec3 WorldSpaceToSpline(const vec3& dbPos, f32 dbFacing, const vec3& base, const vec3& worldPos);
+        void MarkAllSplineAsDirty();
+        u32 GetTotalTimestamp();
+        vec3 GetLastPosition();
+        vec3 GetLastTarget();
 
     private:
-        bool _drawPosition = true;
-        bool _drawTarget = true;
+        DB::Client::Definitions::Cinematic _currentCinematic;
 
-        Spline::SplinePath* _curvePosition  = nullptr;
-        Spline::SplinePath* _curveTarget    = nullptr;
-        Spline::SplinePath* _curveRoll      = nullptr;
-        Spline::SplinePath* _curveFOV       = nullptr;
+        std::vector<SplineData> _splineData = { };
+        std::vector<std::vector<DebugRenderer::DebugVertexSolid3D>> _cacheSplinePosition = { };
+        std::vector<std::vector<DebugRenderer::DebugVertexSolid3D>> _cacheSplineTarget { };
 
-        std::string _file;
-        Model::ComplexModel _model;
-
-        std::vector<DebugRenderer::DebugVertexSolid3D> _cacheSplinePosition { };
-        std::vector<DebugRenderer::DebugVertexSolid3D> _cacheSplineTarget { };
-
-        i32 _maxTimer = 0;
-        i32 _currentTime = 0;
         i32 _redraw = 0;
+
+        // selector
+        bool _drawLineOfView = false;
+        bool _playCinematicForLineOfView = false;
+        i32 _lineOfViewTime = 0;
+        u32 _currentSequence = 0;
+        u32 _currentOperation = 0;
+        SplineSelector _currentSelection = { };
+        SplineControlMode _currentControlMode = SplineControlMode::Aligned;
+        //
 
         // cinematic
         bool _isStarting = false;
-        f32 _cinematicTime = 0.0f;
+        u32 _cinematicTime = 0;
         vec3 _currentTarget { };
         //
 
-        f32 rotation_rad = 0.0f;
-        f32 offset_x = 0.0f;
-        f32 offset_y = 0.0f;
-        f32 offset_z = 0.0f;
-
+        // display settings
+        bool _drawAcceleration = false;
+        bool _drawPosition = true;
+        bool _drawTarget = true;
         i32 _stepBetweenEachPoint = 50;
-        i32 _currentPointSelected = -1;
-
         f32 _sphereRadius = 0.6f;
         i32 _sphereLongitude = 8;
         i32 _sphereLatitude = 8;
-
         f32 _pathWidth = 0.6f;
-
-        f32 _rotationPerSegment = 0.0f;
-
-        static const u8 _itemCount = 8;
-        const char* const _items[_itemCount] = {
-            "Linear",
-            "Bezier",
-            "Hermite",
-            "BSpline",
-            "CatmullRom",
-            "CatmullRom_Uniform",
-            "CatmullRom_Centripetal",
-            "CatmullRom_Chordal"
-        };
-        i32 _selectedItem = 2;
+        bool _useReference = false;
+        f32 _referenceAcceleration = 750.f;
+        f32 _percentAcceleration = 0.5f;
+        vec4 _savedAccelerationColorSlow = vec4{ 0.0f };
+        vec4 _savedAccelerationColorHigh = vec4( 0.0f );
+        vec4 _accelerationColorSlow = { 0.345f, 0.839f, 0.553f, 1.0f };
+        vec4 _accelerationColorHigh = { 0.941f, 0.698f, 0.478f, 1.0f };
+        //
     };
 }

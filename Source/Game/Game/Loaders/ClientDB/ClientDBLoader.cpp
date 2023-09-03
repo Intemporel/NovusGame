@@ -149,8 +149,29 @@ public:
         cinematicDB.entries.data.clear();
         cinematicDB.entries.stringTable.Clear();
 
-        bool isRead = cinematicDB.entries.Read(buffer);
-        return isRead;
+        if (!cinematicDB.entries.Read(buffer))
+        {
+            return false;
+        }
+
+        StringTable& stringTable = cinematicDB.entries.stringTable;
+
+        u32 numRecords = static_cast<u32>(cinematicDB.entries.data.size());
+        cinematicDB.cinematicNames.reserve(numRecords);
+
+        for (u32 i = 0; i < numRecords; i++)
+        {
+            const DB::Client::Definitions::Cinematic& cinematic = cinematicDB.entries.data[i];
+            if (cinematic.name == std::numeric_limits<u32>::max())
+            {
+                continue;
+            }
+
+            const std::string& cinematicName = stringTable.GetString(cinematic.name);
+            cinematicDB.cinematicNames.push_back(cinematicName);
+        }
+
+        return true;
     }
 
     bool LoadSplineDataDB(entt::registry::context& registryCtx, std::shared_ptr<Bytebuffer>& buffer, const ClientDBPair& pair)

@@ -233,7 +233,7 @@ namespace Editor
                     if (!_cameraEditor->IsVisible())
                         _cameraEditor->Show();
 
-                    _cameraEditor->OpenFile(_item);
+                    //_cameraEditor->OpenFile(_item);
                     _cameraEditor->SetIsVisible(true);
                     _cameraEditor->UpdateVisibility();
                 }

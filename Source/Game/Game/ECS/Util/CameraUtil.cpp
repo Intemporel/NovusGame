@@ -64,6 +64,50 @@ namespace ECS::Util
             registry->get_or_emplace<ECS::Components::DirtyTransform> (activeCamera.entity);
         }
 
+        vec3 GetPosition()
+        {
+            entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+            entt::registry::context& ctx = registry->ctx();
+
+            ECS::Singletons::ActiveCamera& activeCamera = ctx.emplace<ECS::Singletons::ActiveCamera>();
+            ECS::Components::Transform& cameraTransform = registry->get<ECS::Components::Transform>(activeCamera.entity);
+
+            return cameraTransform.position;
+        }
+
+        f32 GetRoll()
+        {
+            entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+            entt::registry::context& ctx = registry->ctx();
+
+            ECS::Singletons::ActiveCamera& activeCamera = ctx.emplace<ECS::Singletons::ActiveCamera>();
+            ECS::Components::Camera& camera = registry->get<ECS::Components::Camera>(activeCamera.entity);
+
+            return camera.roll;
+        }
+
+        f32 GetFov()
+        {
+            entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+            entt::registry::context& ctx = registry->ctx();
+
+            ECS::Singletons::ActiveCamera& activeCamera = ctx.emplace<ECS::Singletons::ActiveCamera>();
+            ECS::Components::Camera& camera = registry->get<ECS::Components::Camera>(activeCamera.entity);
+
+            return camera.fov;
+        }
+
+        void MoveTo(const vec3& position)
+        {
+            entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+            entt::registry::context& ctx = registry->ctx();
+
+            ECS::Singletons::ActiveCamera& activeCamera = ctx.emplace<ECS::Singletons::ActiveCamera>();
+            ECS::Components::Transform& cameraTransform = registry->get<ECS::Components::Transform>(activeCamera.entity);
+
+            cameraTransform.position = position;
+        }
+
         void LookAt(const vec3& target)
         {
             entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
@@ -77,6 +121,61 @@ namespace ECS::Util
 
             camera.yaw = glm::degrees(glm::atan(direction.x, direction.z));
             camera.pitch = -glm::degrees(glm::asin(direction.y));
+        }
+
+        void SetRoll(f32 roll)
+        {
+            entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+            entt::registry::context& ctx = registry->ctx();
+
+            ECS::Singletons::ActiveCamera& activeCamera = ctx.emplace<ECS::Singletons::ActiveCamera>();
+            ECS::Components::Camera& camera = registry->get<ECS::Components::Camera>(activeCamera.entity);
+
+            camera.roll = roll;
+        }
+
+        void SetFov(f32 fov)
+        {
+            entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+            entt::registry::context& ctx = registry->ctx();
+
+            ECS::Singletons::ActiveCamera& activeCamera = ctx.emplace<ECS::Singletons::ActiveCamera>();
+            ECS::Components::Camera& camera = registry->get<ECS::Components::Camera>(activeCamera.entity);
+
+            camera.fov = fov;
+        }
+
+        void ResetRoll()
+        {
+            entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+            entt::registry::context& ctx = registry->ctx();
+
+            ECS::Singletons::ActiveCamera& activeCamera = ctx.emplace<ECS::Singletons::ActiveCamera>();
+            ECS::Components::Camera& camera = registry->get<ECS::Components::Camera>(activeCamera.entity);
+
+            camera.roll = 0.0f;
+        }
+
+        void ResetFov()
+        {
+            entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+            entt::registry::context& ctx = registry->ctx();
+
+            ECS::Singletons::ActiveCamera& activeCamera = ctx.emplace<ECS::Singletons::ActiveCamera>();
+            ECS::Components::Camera& camera = registry->get<ECS::Components::Camera>(activeCamera.entity);
+
+            camera.fov = 75.0f;
+        }
+
+        void MarkAsDirty()
+        {
+            entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+            entt::registry::context& ctx = registry->ctx();
+
+            ECS::Singletons::ActiveCamera& activeCamera = ctx.emplace<ECS::Singletons::ActiveCamera>();
+            ECS::Components::Camera& camera = registry->get<ECS::Components::Camera>(activeCamera.entity);
+
+            camera.dirtyView = true;
         }
 	}
 }
